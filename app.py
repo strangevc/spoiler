@@ -38,6 +38,7 @@ def index():
         title = request.form['title']
         genres = request.form.getlist('genre')
         duration = int(request.form['duration'])
+        duration_type = request.form.get('durationType', 'seconds')  # 'seconds' or 'percentage'
         
         # Handle "Other" genre
         if 'Other' in genres:
@@ -53,22 +54,25 @@ def index():
             return jsonify({"error": error_message}), 400
         
         base_prompt = read_prompt_from_file()
-        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        if duration_type == 'percentage':
+            user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
+        else:
+            user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
         full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
         
         # Start processing in a separate thread
-        thread = threading.Thread(target=process_video_with_progress, args=(video, full_prompt, video_url))
+        thread = threading.Thread(target=process_video_with_progress, args=(video, full_prompt, video_url, duration, duration_type))
         thread.start()
         
         return jsonify({"message": "Video uploaded successfully. Processing started."}), 202
     
     return render_template('index.html')
 
-def process_video_with_progress(video, full_prompt, video_url):
+def process_video_with_progress(video, full_prompt, video_url, duration, duration_type):
     def progress_callback(progress):
         socketio.emit('progress_update', {'progress': progress})
 
-    stream_url = process_video(video, full_prompt, progress_callback)
+    stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
     if stream_url:
         save_to_csv(video_url, full_prompt, stream_url)
         socketio.emit('processing_complete', {'stream_url': stream_url})

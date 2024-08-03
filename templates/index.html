@@ -34,14 +34,11 @@
             <input type="text" id="otherGenre" name="otherGenre" style="display: none;"><br><br>
             
             <label for="duration">Duration:</label>
-            <select id="duration" name="duration">
-                <option value="15">15 seconds</option>
-                <option value="30">30 seconds</option>
-                <option value="60">60 seconds</option>
-                <option value="90">90 seconds</option>
-                <option value="180">3 minutes</option>
-                <option value="300">5 minutes</option>
-            </select><br><br>
+            <input type="number" id="duration" name="duration" required>
+            <select id="durationType" name="durationType">
+                <option value="seconds">Seconds</option>
+                <option value="percentage">Percentage</option>
+            </select>
             
             <input type="submit" value="Generate Spoiler">
         </form>

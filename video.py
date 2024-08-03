@@ -8,6 +8,8 @@ from videodb import SearchType
 from videodb.timeline import Timeline, VideoAsset
 from llm_agent import LLM, LLMType, Models
 import logging
+from typing import List, Tuple
+import random
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -107,55 +109,94 @@ def text_prompter(transcript_text, prompt):
     
     return matches
 
-def process_video(video, user_prompt, progress_callback=None):
-    """
-    Process the video using text_prompter and create a timeline
-    """
+def rank_segments_by_narrative_structure(segments: List[Tuple[float, float, str]], video_duration: float) -> List[Tuple[float, float, str]]:
+    def position_score(start, end):
+        mid = (start + end) / 2
+        if mid < video_duration * 0.1:  # Introduction
+            return 5
+        elif mid > video_duration * 0.9:  # Resolution
+            return 4
+        elif video_duration * 0.4 < mid < video_duration * 0.6:  # Climax
+            return 3
+        elif video_duration * 0.1 <= mid <= video_duration * 0.4:  # Rising Action
+            return 2
+        else:  # Falling Action
+            return 1
+
+    return sorted(segments, key=lambda s: position_score(s[0], s[1]), reverse=True)
+
+def process_video(video, user_prompt, progress_callback=None, target_duration=300, duration_type='seconds'):
     try:
-        # Read the base prompt from file
         base_prompt = read_prompt_from_file()
-        
-        # Combine the base prompt with the user's specific prompt
         full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
         
-        # Use text_prompter to find relevant sentences
-        result = text_prompter(video.get_transcript_text(), full_prompt)
+        transcript_text = video.get_transcript_text()
+        logger.info(f"Transcript length: {len(transcript_text)} characters")
+        
+        result = text_prompter(transcript_text, full_prompt)
         logger.info(f"Text prompter found: {len(result)} relevant sentences")
+
+        if not result:
+            logger.warning("No relevant sentences found in the transcript.")
+            return None
+
+        # Get all relevant segments
+        all_segments = []
+        for clip_sentence in result:
+            search_res = video.search(clip_sentence, search_type=SearchType.keyword)
+            matched_segments = search_res.get_shots()
+            for segment in matched_segments:
+                all_segments.append((segment.start, segment.end, clip_sentence))
+
+        # If we need the video duration for percentage calculations, we can estimate it
+        # from the last end time of all segments
+        if duration_type == 'percentage' and all_segments:
+            estimated_duration = max(segment[1] for segment in all_segments)
+            target_duration = (target_duration / 100) * estimated_duration
+
+        # Sort segments based on start time
+        sorted_segments = sorted(all_segments, key=lambda x: x[0])
 
         # Create a timeline
         timeline = Timeline(conn)
 
+        total_duration = 0
         assets_added = 0
-        total_sentences = len(result)
-        for i, clip_sentence in enumerate(result):
-            search_res = video.search(clip_sentence, search_type=SearchType.keyword)
-            matched_segments = search_res.get_shots()
 
-            if len(matched_segments) == 0:
+        for start, end, sentence in sorted_segments:
+            segment_duration = end - start
+            if total_duration + segment_duration > target_duration:
+                # If adding this segment would exceed the target duration, skip it
                 continue
 
-            video_shot = matched_segments[0]
-            timeline.add_inline(VideoAsset(asset_id=video.id, start=video_shot.start, end=video_shot.end))
+            timeline.add_inline(VideoAsset(asset_id=video.id, start=start, end=end))
+            total_duration += segment_duration
             assets_added += 1
-            logger.info(f"Added asset for sentence: {clip_sentence[:50]}...")
+
+            logger.info(f"Added asset for sentence: {sentence[:50]}...")
 
             # Report progress
             if progress_callback:
-                progress = (i + 1) / total_sentences * 100
+                progress = min(100, (total_duration / target_duration) * 100)
                 progress_callback(progress)
+
+            if total_duration >= target_duration:
+                break
 
         if assets_added == 0:
             logger.warning("No VideoAssets were added to the timeline. The processed video might be empty.")
             return None
 
-        logger.info(f"Added {assets_added} VideoAssets to the timeline.")
+        logger.info(f"Added {assets_added} VideoAssets to the timeline. Total duration: {total_duration:.2f} seconds")
 
         # Generate the stream
         stream_url = timeline.generate_stream()
+        logger.info(f"Generated stream URL: {stream_url}")
         return stream_url
     except Exception as e:
-        logger.error(f"Error processing video: {str(e)}")
+        logger.error(f"Error processing video: {str(e)}", exc_info=True)
         return None
+
 
 def save_to_csv(video_url, prompt, stream_link):
     """
