@@ -84,10 +84,9 @@
         </div>
     </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        var socket = io();
-
         $('#other-checkbox').change(function() {
             $('#otherGenre').toggle(this.checked);
         });
@@ -98,11 +97,12 @@
             $('#processing').show();
 
             $.ajax({
-                url: '/',
+                url: '/process',
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function(response) {
                     console.log('Processing started');
+                    pollProcessingStatus();
                 },
                 error: function(xhr, status, error) {
                     let errorMessage = 'An error occurred while processing the video.';
@@ -116,21 +116,35 @@
             });
         });
 
-        socket.on('progress_update', function(data) {
-            var progress = Math.round(data.progress);
-            $('#progress').css('width', progress + '%');
-            $('#progress-text').text(progress + '%');
-        });
+        function pollProcessingStatus() {
+            $.ajax({
+                url: '/status',
+                type: 'GET',
+                success: function(data) {
+                    if (data.status === 'processing') {
+                        updateProgress(data.progress);
+                        setTimeout(pollProcessingStatus, 2000); // Poll every 2 seconds
+                    } else if (data.status === 'completed') {
+                        window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
+                    } else if (data.status === 'error') {
+                        alert('An error occurred while processing the video. Please try again.');
+                        $('#form-container').show();
+                        $('#processing').hide();
+                    }
+                },
+                error: function() {
+                    alert('Error checking processing status. Please try again.');
+                    $('#form-container').show();
+                    $('#processing').hide();
+                }
+            });
+        }
 
-        socket.on('processing_complete', function(data) {
-            window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
-        });
-
-        socket.on('processing_error', function() {
-            alert('An error occurred while processing the video. Please try again.');
-            $('#form-container').show();
-            $('#processing').hide();
-        });
+        function updateProgress(progress) {
+            var roundedProgress = Math.round(progress);
+            $('#progress').css('width', roundedProgress + '%');
+            $('#progress-text').text(roundedProgress + '%');
+        }
     });
 </script>
 </body>
