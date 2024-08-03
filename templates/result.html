@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Spoiler is Ready!</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.0.7/hls.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Your Spoiler is Ready!</h1>
+    
+    <video id="video" controls width="100%"></video>
+    
+    <p>Stream URL: <a href="{{ stream_url }}" target="_blank">{{ stream_url }}</a></p>
+    
+    <p><a href="/">Generate Another Spoiler</a></p>
+
+    <script>
+        var video = document.getElementById('video');
+        var streamUrl = "{{ stream_url }}";
+        
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+        }
+        // HLS.js is not supported on platforms that do not have Media Source Extensions (MSE) enabled.
+        // When the browser has built-in HLS support (check using `canPlayType`), we can provide an HLS manifest (i.e. .m3u8 URL) directly to the video element through the `src` property.
+        // This is using the built-in support of the plain video element, without using HLS.js.
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = streamUrl;
+        }
+    </script>
+</body>
+</html>
