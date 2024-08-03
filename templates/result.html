@@ -5,18 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Spoiler is Ready!</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.0.7/hls.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h1>Your Spoiler is Ready!</h1>
-    
-    <video id="video" controls width="100%"></video>
-    
-    <p>Stream URL: <a href="{{ stream_url }}" target="_blank">{{ stream_url }}</a></p>
-    
-    <p><a href="/">Generate Another Spoiler</a></p>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
+        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">Your Spoiler is Ready!</h1>
+        
+        <div class="mb-6">
+            <video id="video" controls class="w-full rounded-lg shadow-md"></video>
+        </div>
+        
+        <p class="mb-4 text-center">
+            Stream URL: <a href="{{ stream_url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800">{{ stream_url }}</a>
+        </p>
+        
+        <div class="flex justify-center space-x-4">
+            <a href="{{ url_for('download_video', stream_url=stream_url) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Download Spoiler Video
+            </a>
+            <a href="/" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Generate Another Spoiler
+            </a>
+        </div>
+    </div>
 
     <script>
         var video = document.getElementById('video');
@@ -27,9 +38,6 @@
             hls.loadSource(streamUrl);
             hls.attachMedia(video);
         }
-        // HLS.js is not supported on platforms that do not have Media Source Extensions (MSE) enabled.
-        // When the browser has built-in HLS support (check using `canPlayType`), we can provide an HLS manifest (i.e. .m3u8 URL) directly to the video element through the `src` property.
-        // This is using the built-in support of the plain video element, without using HLS.js.
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = streamUrl;
         }

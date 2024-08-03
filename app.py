@@ -80,6 +80,30 @@ def process_video_with_progress(video, full_prompt, video_url, duration, duratio
         logger.error("Video processing failed or returned no stream URL")
         socketio.emit('processing_error')
 
+@app.route('/download/<path:stream_url>')
+def download_video(stream_url):
+    try:
+        # Download the video content
+        response = requests.get(stream_url)
+        response.raise_for_status()
+
+        # Create an in-memory file-like object
+        video_file = io.BytesIO(response.content)
+
+        # Generate a filename (you might want to use a more meaningful name)
+        filename = "spoiler_video.mp4"
+
+        # Send the file
+        return send_file(
+            video_file,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='video/mp4'
+        )
+    except Exception as e:
+        logger.error(f"Error downloading video: {str(e)}")
+        return jsonify({"error": "Failed to download video"}), 500
+
 @app.route('/result')
 def result():
     stream_url = request.args.get('stream_url', '')
