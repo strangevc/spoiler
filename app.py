@@ -1,12 +1,10 @@
 import os
 import logging
-import warnings
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from dotenv import load_dotenv
-import urllib3
-
-# Suppress the OpenSSL warning
-warnings.filterwarnings("ignore", category=urllib3.exceptions.NotOpenSSLWarning)
+import requests
+import io
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -17,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 # Create Flask app
 app = Flask(__name__)
-# socketio = SocketIO(app, async_mode='gevent')
 
 # Import video-related functions
 try:
@@ -26,7 +23,8 @@ except ImportError as e:
     logger.error(f"Error importing video functions: {e}")
     raise
 
-import threading
+# You might want to use a proper task queue in a production environment
+processing_tasks = {}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -60,43 +58,14 @@ def index():
         full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
         
         # Start processing in a separate thread
-        thread = threading.Thread(target=process_video_with_progress, args=(video, full_prompt, video_url, duration, duration_type))
+        task_id = video.id
+        processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
+        thread = threading.Thread(target=process_video_thread, args=(video, full_prompt, video_url, duration, duration_type, task_id))
         thread.start()
         
-        return jsonify({"message": "Video uploaded successfully. Processing started."}), 202
+        return jsonify({"message": "Video uploaded successfully. Processing started.", "task_id": task_id}), 202
     
     return render_template('index.html')
-
-@app.route('/process', methods=['POST'])
-def process():
-    video_url = request.form['video_url']
-    title = request.form['title']
-    genres = request.form.getlist('genre')
-    duration = int(request.form['duration'])
-    
-    # Handle "Other" genre
-    if 'Other' in genres:
-        genres.remove('Other')
-        other_genre = request.form.get('otherGenre')
-        if other_genre:
-            genres.append(other_genre)
-    
-    video = upload_video(video_url)
-    if video is None:
-        return jsonify({"error": "Error uploading video. Please check the URL and try again."}), 400
-    
-    base_prompt = read_prompt_from_file()
-    user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-    full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
-    
-    # Start processing in a background thread (you might want to use a proper task queue in production)
-    import threading
-    task_id = video.id
-    processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
-    thread = threading.Thread(target=process_video_thread, args=(video, full_prompt, video_url, task_id))
-    thread.start()
-    
-    return jsonify({"message": "Video processing started", "task_id": task_id})
 
 @app.route('/status')
 def status():
@@ -106,17 +75,21 @@ def status():
         return jsonify(task)
     return jsonify({"status": "not_found"})
 
-def process_video_with_progress(video, full_prompt, video_url, duration, duration_type):
+def process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id):
     def progress_callback(progress):
-        socketio.emit('progress_update', {'progress': progress})
+        processing_tasks[task_id]['progress'] = progress
 
-    stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
-    if stream_url:
-        save_to_csv(video_url, full_prompt, stream_url)
-        socketio.emit('processing_complete', {'stream_url': stream_url})
-    else:
-        logger.error("Video processing failed or returned no stream URL")
-        socketio.emit('processing_error')
+    try:
+        stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
+        if stream_url:
+            save_to_csv(video_url, full_prompt, stream_url)
+            processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
+        else:
+            logger.error("Video processing failed or returned no stream URL")
+            processing_tasks[task_id] = {'status': 'error'}
+    except Exception as e:
+        logger.error(f"Error processing video: {str(e)}")
+        processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
 
 @app.route('/download/<path:stream_url>')
 def download_video(stream_url):
@@ -154,6 +127,4 @@ def health_check():
 if __name__ == '__main__':
     logger.info("Starting the application")
     port = int(os.environ.get('PORT', 5000))
-    # socketio.run(app, debug=True, host='0.0.0.0', port=port)
     app.run(host='0.0.0.0', port=port)
-
