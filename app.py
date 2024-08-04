@@ -1,11 +1,12 @@
 import os
 import logging
+import uuid
+import time
+import threading
 from flask import Flask, render_template, request, jsonify, send_file, current_app
 from dotenv import load_dotenv
 import requests
 import io
-import threading
-import time 
 
 # Load environment variables
 load_dotenv()
@@ -73,35 +74,6 @@ def process():
         app.logger.exception(f"Error in process route: {str(e)}")
         return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
-@app.route('/status/<task_id>')
-def status(task_id):
-    task = processing_tasks.get(task_id, {'status': 'not_found'})
-    return jsonify(task)
-
-def process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id):
-    start_time = time.time()
-    logger.info(f"Starting video processing for task {task_id}")
-
-    def progress_callback(progress):
-        processing_tasks[task_id]['progress'] = progress
-        logger.debug(f"Task {task_id} progress: {progress}%")
-
-    try:
-        stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
-        if stream_url:
-            save_to_csv(video_url, full_prompt, stream_url)
-            processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
-            logger.info(f"Video processing completed for task {task_id}")
-        else:
-            logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
-            processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
-    except Exception as e:
-        logger.exception(f"Error processing video for task {task_id}: {str(e)}")
-        processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
-
-    end_time = time.time()
-    logger.info(f"Video processing for task {task_id} took {end_time - start_time:.2f} seconds")
-
 def process_video_async(task_id, video_url, title, genres, duration, duration_type):
     app.logger.info(f"Starting async processing for task {task_id}")
     try:
@@ -136,6 +108,11 @@ def process_video_async(task_id, video_url, title, genres, duration, duration_ty
         processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
         app.logger.exception(f"Error processing video for task {task_id}: {str(e)}")
 
+@app.route('/status/<task_id>')
+def status(task_id):
+    task = processing_tasks.get(task_id, {'status': 'not_found'})
+    return jsonify(task)
+
 @app.route('/download/<path:stream_url>')
 def download_video(stream_url):
     try:
@@ -157,7 +134,7 @@ def download_video(stream_url):
             mimetype='video/mp4'
         )
     except Exception as e:
-        logger.error(f"Error downloading video: {str(e)}")
+        app.logger.error(f"Error downloading video: {str(e)}")
         return jsonify({"error": "Failed to download video"}), 500
 
 @app.route('/result')
@@ -165,14 +142,14 @@ def result():
     stream_url = request.args.get('stream_url', '')
     return render_template('result.html', stream_url=stream_url)
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200
+
 @app.route('/test', methods=['GET'])
 def test():
     app.logger.info("Test route accessed")
     return jsonify({"message": "Test successful", "env": app.config['ENV']}), 200
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({"status": "ok"}), 200
 
 if __name__ == '__main__':
     app.logger.info("Starting the application in development mode")
