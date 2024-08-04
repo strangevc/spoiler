@@ -51,55 +51,27 @@ def process():
         duration = int(request.form['duration'])
         duration_type = request.form.get('durationType', 'seconds')
         
-        app.logger.info(f"Processing request for video: {video_url}, title: {title}, duration: {duration} {duration_type}")
+        app.logger.info(f"Received request for video: {video_url}, title: {title}, duration: {duration} {duration_type}")
         
-        # Handle "Other" genre
-        if 'Other' in genres:
-            genres.remove('Other')
-            other_genre = request.form.get('otherGenre')
-            if other_genre:
-                genres.append(other_genre)
-        
-        upload_start = time.time()
-        video = upload_video(video_url)
-        upload_end = time.time()
-        app.logger.info(f"Video upload took {upload_end - upload_start:.2f} seconds")
-        
-        if video is None:
-            error_message = "Error uploading video. Please check the URL and try again."
-            app.logger.error(f"Failed to upload video from URL: {video_url}")
-            return jsonify({"error": error_message}), 400
-        
-        base_prompt = read_prompt_from_file()
-        if duration_type == 'percentage':
-            user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
-        else:
-            user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+        # Generate a task ID immediately
+        task_id = str(uuid.uuid4())
+        processing_tasks[task_id] = {'status': 'queued', 'progress': 0}
         
         # Start processing in a separate thread
-        task_id = video.id
-        processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
-        
-        def run_in_app_context():
-            with current_app.app_context():
-                process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id)
-        
-        thread = threading.Thread(target=run_in_app_context)
+        thread = threading.Thread(target=process_video_async, args=(task_id, video_url, title, genres, duration, duration_type))
         thread.start()
         
         end_time = time.time()
         app.logger.info(f"Process route completed in {end_time - start_time:.2f} seconds")
         
         return jsonify({
-            "message": "Video uploaded successfully. Processing started.",
+            "message": "Request received. Processing queued.",
             "task_id": task_id
         }), 202
     
     except Exception as e:
         app.logger.exception(f"Error in process route: {str(e)}")
         return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
-
 
 @app.route('/status/<task_id>')
 def status(task_id):
@@ -130,6 +102,40 @@ def process_video_thread(video, full_prompt, video_url, duration, duration_type,
     end_time = time.time()
     logger.info(f"Video processing for task {task_id} took {end_time - start_time:.2f} seconds")
 
+def process_video_async(task_id, video_url, title, genres, duration, duration_type):
+    app.logger.info(f"Starting async processing for task {task_id}")
+    try:
+        processing_tasks[task_id]['status'] = 'uploading'
+        video = upload_video(video_url)
+        if video is None:
+            processing_tasks[task_id] = {'status': 'error', 'message': 'Failed to upload video'}
+            app.logger.error(f"Failed to upload video from URL: {video_url}")
+            return
+
+        processing_tasks[task_id]['status'] = 'processing'
+        base_prompt = read_prompt_from_file()
+        if duration_type == 'percentage':
+            user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
+        else:
+            user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+
+        def progress_callback(progress):
+            processing_tasks[task_id]['progress'] = progress
+            app.logger.debug(f"Task {task_id} progress: {progress}%")
+
+        stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
+        if stream_url:
+            save_to_csv(video_url, full_prompt, stream_url)
+            processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
+            app.logger.info(f"Video processing completed for task {task_id}")
+        else:
+            processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
+            app.logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
+    except Exception as e:
+        processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
+        app.logger.exception(f"Error processing video for task {task_id}: {str(e)}")
+
 @app.route('/download/<path:stream_url>')
 def download_video(stream_url):
     try:
@@ -158,6 +164,11 @@ def download_video(stream_url):
 def result():
     stream_url = request.args.get('stream_url', '')
     return render_template('result.html', stream_url=stream_url)
+
+@app.route('/test', methods=['GET'])
+def test():
+    app.logger.info("Test route accessed")
+    return jsonify({"message": "Test successful", "env": app.config['ENV']}), 200
 
 @app.route('/health', methods=['GET'])
 def health_check():
