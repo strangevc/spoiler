@@ -96,26 +96,25 @@ def process_video_async(task_id, video_url, title, genres, duration, duration_ty
             processing_tasks[task_id]['progress'] = progress
             app.logger.debug(f"Task {task_id} progress: {progress}%")
 
-stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
-           if stream_url:
-               save_to_csv(video_url, full_prompt, stream_url)
-               processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
-               app.logger.info(f"Video processing completed for task {task_id}. Stream URL: {stream_url}")
-           else:
-               processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
-               app.logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
-       except Exception as e:
-           processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
-           app.logger.exception(f"Error processing video for task {task_id}: {str(e)}")
-       
-       app.logger.info(f"Final task status for {task_id}: {processing_tasks.get(task_id)}")
-
+        stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
+        if stream_url:
+            save_to_csv(video_url, full_prompt, stream_url)
+            processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
+            app.logger.info(f"Video processing completed for task {task_id}. Stream URL: {stream_url}")
+        else:
+            processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
+            app.logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
+    except Exception as e:
+        processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
+        app.logger.exception(f"Error processing video for task {task_id}: {str(e)}")
+    
+    app.logger.info(f"Final task status for {task_id}: {processing_tasks.get(task_id)}")
 
 @app.route('/status/<task_id>')
-   def status(task_id):
-       task = processing_tasks.get(task_id, {'status': 'not_found'})
-       app.logger.info(f"Status request for task {task_id}. Current status: {task}")
-       return jsonify(task)
+def status(task_id):
+    task = processing_tasks.get(task_id, {'status': 'not_found'})
+    app.logger.info(f"Status request for task {task_id}. Current status: {task}")
+    return jsonify(task)
 
 @app.route('/download/<path:stream_url>')
 def download_video(stream_url):
@@ -144,6 +143,9 @@ def download_video(stream_url):
 @app.route('/result')
 def result():
     stream_url = request.args.get('stream_url', '')
+    if not stream_url:
+        app.logger.warning("Result route accessed without stream_url")
+        return redirect(url_for('index'))
     return render_template('result.html', stream_url=stream_url)
 
 @app.route('/health', methods=['GET'])
