@@ -1,10 +1,12 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, current_app
 from dotenv import load_dotenv
 import requests
 import io
 import threading
+import time 
+
 
 # Load environment variables
 load_dotenv()
@@ -33,61 +35,92 @@ def index():
 
 @app.route('/process', methods=['POST'])
 def process():
+    start_time = time.time()
     logger.debug("Process route accessed")
-    video_url = request.form['video_url']
-    title = request.form['title']
-    genres = request.form.getlist('genre')
-    duration = int(request.form['duration'])
-    duration_type = request.form.get('durationType', 'seconds')  # 'seconds' or 'percentage'
     
-    # Handle "Other" genre
-    if 'Other' in genres:
-        genres.remove('Other')
-        other_genre = request.form.get('otherGenre')
-        if other_genre:
-            genres.append(other_genre)
+    try:
+        video_url = request.form['video_url']
+        title = request.form['title']
+        genres = request.form.getlist('genre')
+        duration = int(request.form['duration'])
+        duration_type = request.form.get('durationType', 'seconds')
+        
+        logger.info(f"Processing request for video: {video_url}, title: {title}, duration: {duration} {duration_type}")
+        
+        # Handle "Other" genre
+        if 'Other' in genres:
+            genres.remove('Other')
+            other_genre = request.form.get('otherGenre')
+            if other_genre:
+                genres.append(other_genre)
+        
+        upload_start = time.time()
+        video = upload_video(video_url)
+        upload_end = time.time()
+        logger.info(f"Video upload took {upload_end - upload_start:.2f} seconds")
+        
+        if video is None:
+            error_message = "Error uploading video. Please check the URL and try again."
+            logger.error(f"Failed to upload video from URL: {video_url}")
+            return jsonify({"error": error_message}), 400
+        
+        base_prompt = read_prompt_from_file()
+        if duration_type == 'percentage':
+            user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
+        else:
+            user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+        
+        # Start processing in a separate thread
+        task_id = video.id
+        processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
+        
+        def run_in_app_context():
+            with current_app.app_context():
+                process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id)
+        
+        thread = threading.Thread(target=run_in_app_context)
+        thread.start()
+        
+        end_time = time.time()
+        logger.info(f"Process route completed in {end_time - start_time:.2f} seconds")
+        
+        return jsonify({
+            "message": "Video uploaded successfully. Processing started.",
+            "task_id": task_id
+        }), 202
     
-    video = upload_video(video_url)
-    if video is None:
-        error_message = "Error uploading video. Please check the URL and try again."
-        logger.error(f"Failed to upload video from URL: {video_url}")
-        return jsonify({"error": error_message}), 400
-    
-    base_prompt = read_prompt_from_file()
-    if duration_type == 'percentage':
-        user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
-    else:
-        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-    full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
-    
-    # Start processing in a separate thread
-    task_id = video.id
-    processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
-    thread = threading.Thread(target=process_video_thread, args=(video, full_prompt, video_url, duration, duration_type, task_id))
-    thread.start()
-    
-    return jsonify({"message": "Video uploaded successfully. Processing started.", "task_id": task_id}), 202
-
+    except Exception as e:
+        logger.exception(f"Error in process route: {str(e)}")
+        return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 @app.route('/status/<task_id>')
 def status(task_id):
     task = processing_tasks.get(task_id, {'status': 'not_found'})
     return jsonify(task)
 
 def process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id):
+    start_time = time.time()
+    logger.info(f"Starting video processing for task {task_id}")
+
     def progress_callback(progress):
         processing_tasks[task_id]['progress'] = progress
+        logger.debug(f"Task {task_id} progress: {progress}%")
 
     try:
         stream_url = process_video(video, full_prompt, progress_callback, target_duration=duration, duration_type=duration_type)
         if stream_url:
             save_to_csv(video_url, full_prompt, stream_url)
             processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
+            logger.info(f"Video processing completed for task {task_id}")
         else:
-            logger.error("Video processing failed or returned no stream URL")
-            processing_tasks[task_id] = {'status': 'error'}
+            logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
+            processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
     except Exception as e:
-        logger.error(f"Error processing video: {str(e)}")
+        logger.exception(f"Error processing video for task {task_id}: {str(e)}")
         processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
+
+    end_time = time.time()
+    logger.info(f"Video processing for task {task_id} took {end_time - start_time:.2f} seconds")
 
 @app.route('/download/<path:stream_url>')
 def download_video(stream_url):
