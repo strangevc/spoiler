@@ -26,46 +26,47 @@ except ImportError as e:
 # Dictionary to store processing tasks
 processing_tasks = {}
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def index():
     logger.debug("Index route accessed")
-    if request.method == 'POST':
-        logger.debug("POST request received")
-        video_url = request.form['video_url']
-        title = request.form['title']
-        genres = request.form.getlist('genre')
-        duration = int(request.form['duration'])
-        duration_type = request.form.get('durationType', 'seconds')  # 'seconds' or 'percentage'
-        
-        # Handle "Other" genre
-        if 'Other' in genres:
-            genres.remove('Other')
-            other_genre = request.form.get('otherGenre')
-            if other_genre:
-                genres.append(other_genre)
-        
-        video = upload_video(video_url)
-        if video is None:
-            error_message = "Error uploading video. Please check the URL and try again."
-            logger.error(f"Failed to upload video from URL: {video_url}")
-            return jsonify({"error": error_message}), 400
-        
-        base_prompt = read_prompt_from_file()
-        if duration_type == 'percentage':
-            user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
-        else:
-            user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
-        
-        # Start processing in a separate thread
-        task_id = video.id
-        processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
-        thread = threading.Thread(target=process_video_thread, args=(video, full_prompt, video_url, duration, duration_type, task_id))
-        thread.start()
-        
-        return jsonify({"message": "Video uploaded successfully. Processing started.", "task_id": task_id}), 202
-    
     return render_template('index.html')
+
+@app.route('/process', methods=['POST'])
+def process():
+    logger.debug("Process route accessed")
+    video_url = request.form['video_url']
+    title = request.form['title']
+    genres = request.form.getlist('genre')
+    duration = int(request.form['duration'])
+    duration_type = request.form.get('durationType', 'seconds')  # 'seconds' or 'percentage'
+    
+    # Handle "Other" genre
+    if 'Other' in genres:
+        genres.remove('Other')
+        other_genre = request.form.get('otherGenre')
+        if other_genre:
+            genres.append(other_genre)
+    
+    video = upload_video(video_url)
+    if video is None:
+        error_message = "Error uploading video. Please check the URL and try again."
+        logger.error(f"Failed to upload video from URL: {video_url}")
+        return jsonify({"error": error_message}), 400
+    
+    base_prompt = read_prompt_from_file()
+    if duration_type == 'percentage':
+        user_prompt = f"Create a summary that is {duration}% of the original video length for a {', '.join(genres)} video titled '{title}'."
+    else:
+        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+    full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+    
+    # Start processing in a separate thread
+    task_id = video.id
+    processing_tasks[task_id] = {'status': 'processing', 'progress': 0}
+    thread = threading.Thread(target=process_video_thread, args=(video, full_prompt, video_url, duration, duration_type, task_id))
+    thread.start()
+    
+    return jsonify({"message": "Video uploaded successfully. Processing started.", "task_id": task_id}), 202
 
 @app.route('/status/<task_id>')
 def status(task_id):
