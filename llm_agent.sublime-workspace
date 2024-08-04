@@ -1,0 +1,234 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"fo",
+				"footer"
+			]
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/Users/taratan/Documents/Github/videodb/requirements.txt",
+		"/Users/taratan/Documents/Github/videodb/templates/result.html",
+		"/Users/taratan/Documents/Github/videodb/templates/index.html",
+		"/Users/taratan/Documents/Github/videodb/app.py",
+		"/Users/taratan/Documents/Github/videodb/video.py",
+		"/Users/taratan/Documents/Github/videodb/spoiler_prompt.txt",
+		"/Users/taratan/Documents/Github/videodb/.env",
+		"/Users/taratan/Documents/Github/videodb/llm_agent.py",
+		"/Users/taratan/Documents/Github/videodb/PromptClip/video_prompter.py",
+		"/Users/taratan/Documents/Github/videodb/PromptClip/PromptClip.ipynb",
+		"/Users/taratan/Documents/Github/videodb/PromptClip/.env.sample",
+		"/Users/taratan/Documents/Github/wowheadshots/index.html",
+		"/Users/taratan/Documents/Github/wowheadshots/home.html",
+		"/Users/taratan/Documents/Github/wowheadshots/styles.css",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/models/SrefCode.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/components/SubmitSref.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server/db.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server/srefOperations.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server/server.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/.env",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server/models/SrefCode.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/components/Home.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/GenerateSref.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/imageTagger.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/mjGenerator.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/package.json",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/components/Navbar.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/App.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/index.css",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/tailwind.config.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/server/imageTagger.js",
+		"/Users/taratan/Documents/Github/MJ-sref/tailwind-test/src/server.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/manage_sref_codes.py",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/sref_database.json",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/routes/srefSubmissions.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/twitter_scraper.py",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/SubmitSref.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/styles/Favorites.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/Favorites.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/styles/Auth.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/index.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/styles/App.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/styles/Home.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/Login.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/Register.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/server.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/models/SrefCode.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/package.json",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/App.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/routes/srefCodes.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/App.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/index.css",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/tailwind.config.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/Navbar.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/Home.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/twitter_scraper.py",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/login.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/utils/auth.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/client/src/components/home.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/routes/auth.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/models/user.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/models/srefcode.js",
+		"/Users/taratan/Documents/Github/midjourney-sref-directory/.env"
+	],
+	"find":
+	{
+		"height": 24.0
+	},
+	"find_in_files":
+	{
+		"height": 98.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"scrollbar_highlights": true,
+		"show_context": true,
+		"use_buffer2": true,
+		"use_gitignore": true,
+		"whole_word": false,
+		"wrap": false
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 24.0
+	},
+	"input":
+	{
+		"height": 36.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "llm_agent.sublime-project",
+	"replace":
+	{
+		"height": 44.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 267.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
