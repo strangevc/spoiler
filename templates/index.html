@@ -101,7 +101,7 @@
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function(response) {
-                    console.log('Processing started');
+                    console.log('Processing started', response);
                     if (response.task_id) {
                         pollProcessingStatus(response.task_id);
                     } else {
@@ -122,38 +122,38 @@
             });
         });
 
-function pollProcessingStatus(taskId) {
-       $.ajax({
-           url: '/status/' + taskId,
-           type: 'GET',
-           success: function(data) {
-               console.log('Received status:', data);  // Add this line
-               if (data.status === 'processing') {
-                   updateProgress(data.progress);
-                   setTimeout(function() {
-                       pollProcessingStatus(taskId);
-                   }, 2000);
-               } else if (data.status === 'completed') {
-                   console.log('Redirecting to:', '/result?stream_url=' + encodeURIComponent(data.stream_url));  // Add this line
-                   window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
-               } else if (data.status === 'error') {
-                   alert('An error occurred while processing the video: ' + data.message);
-                   $('#form-container').show();
-                   $('#processing').hide();
-               } else if (data.status === 'not_found') {
-                   alert('Processing task not found. Please try again.');
-                   $('#form-container').show();
-                   $('#processing').hide();
-               }
-           },
-           error: function(xhr, status, error) {
-               console.error('Error checking status:', error);  // Add this line
-               alert('Error checking processing status. Please try again.');
-               $('#form-container').show();
-               $('#processing').hide();
-           }
-       });
-   }
+        function pollProcessingStatus(taskId) {
+            $.ajax({
+                url: '/status/' + taskId,
+                type: 'GET',
+                success: function(data) {
+                    console.log('Status update received:', data);
+                    if (data.status === 'processing') {
+                        updateProgress(data.progress);
+                        setTimeout(function() {
+                            pollProcessingStatus(taskId);
+                        }, 2000); // Poll every 2 seconds
+                    } else if (data.status === 'completed') {
+                        console.log('Processing completed. Redirecting to:', '/result?stream_url=' + encodeURIComponent(data.stream_url));
+                        window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
+                    } else if (data.status === 'error') {
+                        alert('An error occurred while processing the video: ' + data.message);
+                        $('#form-container').show();
+                        $('#processing').hide();
+                    } else if (data.status === 'not_found') {
+                        alert('Processing task not found. Please try again.');
+                        $('#form-container').show();
+                        $('#processing').hide();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error checking status:', error);
+                    alert('Error checking processing status. Please try again.');
+                    $('#form-container').show();
+                    $('#processing').hide();
+                }
+            });
+        }
 
         function updateProgress(progress) {
             var roundedProgress = Math.round(progress);
