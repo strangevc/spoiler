@@ -7,22 +7,28 @@ import io
 import threading
 import time 
 
-
 # Load environment variables
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 # Create Flask app
 app = Flask(__name__)
+
+# Set up logging
+if __name__ != '__main__':
+    # When running with Gunicorn
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+else:
+    # When running directly with Python (development)
+    logging.basicConfig(level=logging.DEBUG)
+    app.logger.setLevel(logging.DEBUG)
 
 # Import video-related functions
 try:
     from video import upload_video, process_video, read_prompt_from_file, save_to_csv
 except ImportError as e:
-    logger.error(f"Error importing video functions: {e}")
+    app.logger.error(f"Error importing video functions: {e}")
     raise
 
 # Dictionary to store processing tasks
@@ -30,13 +36,13 @@ processing_tasks = {}
 
 @app.route('/', methods=['GET'])
 def index():
-    logger.debug("Index route accessed")
+    app.logger.debug("Index route accessed")
     return render_template('index.html')
 
 @app.route('/process', methods=['POST'])
 def process():
     start_time = time.time()
-    logger.debug("Process route accessed")
+    app.logger.debug("Process route accessed")
     
     try:
         video_url = request.form['video_url']
@@ -45,7 +51,7 @@ def process():
         duration = int(request.form['duration'])
         duration_type = request.form.get('durationType', 'seconds')
         
-        logger.info(f"Processing request for video: {video_url}, title: {title}, duration: {duration} {duration_type}")
+        app.logger.info(f"Processing request for video: {video_url}, title: {title}, duration: {duration} {duration_type}")
         
         # Handle "Other" genre
         if 'Other' in genres:
@@ -57,11 +63,11 @@ def process():
         upload_start = time.time()
         video = upload_video(video_url)
         upload_end = time.time()
-        logger.info(f"Video upload took {upload_end - upload_start:.2f} seconds")
+        app.logger.info(f"Video upload took {upload_end - upload_start:.2f} seconds")
         
         if video is None:
             error_message = "Error uploading video. Please check the URL and try again."
-            logger.error(f"Failed to upload video from URL: {video_url}")
+            app.logger.error(f"Failed to upload video from URL: {video_url}")
             return jsonify({"error": error_message}), 400
         
         base_prompt = read_prompt_from_file()
@@ -83,7 +89,7 @@ def process():
         thread.start()
         
         end_time = time.time()
-        logger.info(f"Process route completed in {end_time - start_time:.2f} seconds")
+        app.logger.info(f"Process route completed in {end_time - start_time:.2f} seconds")
         
         return jsonify({
             "message": "Video uploaded successfully. Processing started.",
@@ -91,8 +97,10 @@ def process():
         }), 202
     
     except Exception as e:
-        logger.exception(f"Error in process route: {str(e)}")
+        app.logger.exception(f"Error in process route: {str(e)}")
         return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
+
+
 @app.route('/status/<task_id>')
 def status(task_id):
     task = processing_tasks.get(task_id, {'status': 'not_found'})
@@ -156,6 +164,6 @@ def health_check():
     return jsonify({"status": "ok"}), 200
 
 if __name__ == '__main__':
-    logger.info("Starting the application")
+    app.logger.info("Starting the application in development mode")
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
