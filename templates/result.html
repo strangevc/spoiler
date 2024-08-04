@@ -13,6 +13,7 @@
         
         <div class="mb-6">
             <video id="video" controls class="w-full rounded-lg shadow-md"></video>
+            <p id="error-message" class="text-red-500 text-center mt-2 hidden"></p>
         </div>
         
         <p class="mb-4 text-center">
@@ -28,19 +29,53 @@
             </a>
         </div>
     </div>
-
     <script>
-        var video = document.getElementById('video');
-        var streamUrl = "{{ stream_url }}";
-        
-        if (Hls.isSupported()) {
-            var hls = new Hls();
-            hls.loadSource(streamUrl);
-            hls.attachMedia(video);
-        }
-        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = streamUrl;
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            var video = document.getElementById('video');
+            var errorMessage = document.getElementById('error-message');
+            var streamUrl = "{{ stream_url }}";
+            
+            function displayError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+            }
+
+            if (Hls.isSupported()) {
+                var hls = new Hls();
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                displayError("Network error, please try refreshing the page.");
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                displayError("Media error, please try refreshing the page.");
+                                break;
+                            default:
+                                displayError("An error occurred while loading the video.");
+                                break;
+                        }
+                    }
+                });
+            }
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = streamUrl;
+                video.addEventListener('error', function() {
+                    displayError("An error occurred while loading the video.");
+                });
+            }
+            else {
+                displayError("Your browser does not support HLS video playback.");
+            }
+
+            video.addEventListener('loadedmetadata', function() {
+                video.play().catch(function(error) {
+                    console.log("Auto-play was prevented:", error);
+                });
+            });
+        });
     </script>
 </body>
 </html>

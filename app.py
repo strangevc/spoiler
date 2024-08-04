@@ -100,13 +100,14 @@ def process_video_async(task_id, video_url, title, genres, duration, duration_ty
         if stream_url:
             save_to_csv(video_url, full_prompt, stream_url)
             processing_tasks[task_id] = {'status': 'completed', 'stream_url': stream_url}
-            app.logger.info(f"Video processing completed for task {task_id}")
+            app.logger.info(f"Video processing completed for task {task_id}. Stream URL: {stream_url}")
         else:
             processing_tasks[task_id] = {'status': 'error', 'message': 'Processing failed to generate a stream URL'}
             app.logger.error(f"Video processing failed or returned no stream URL for task {task_id}")
     except Exception as e:
         processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
         app.logger.exception(f"Error processing video for task {task_id}: {str(e)}")
+
 
 @app.route('/status/<task_id>')
 def status(task_id):

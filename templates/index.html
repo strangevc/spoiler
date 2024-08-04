@@ -95,6 +95,7 @@
             e.preventDefault();
             $('#form-container').hide();
             $('#processing').show();
+
             $.ajax({
                 url: '/process',
                 type: 'POST',
@@ -134,7 +135,7 @@
                     } else if (data.status === 'completed') {
                         window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
                     } else if (data.status === 'error') {
-                        alert('An error occurred while processing the video. Please try again.');
+                        alert('An error occurred while processing the video: ' + data.message);
                         $('#form-container').show();
                         $('#processing').hide();
                     } else if (data.status === 'not_found') {
