@@ -23,7 +23,7 @@ except ImportError as e:
     logger.error(f"Error importing video functions: {e}")
     raise
 
-# You might want to use a proper task queue in a production environment
+# Dictionary to store processing tasks
 processing_tasks = {}
 
 @app.route('/', methods=['GET', 'POST'])
@@ -67,13 +67,10 @@ def index():
     
     return render_template('index.html')
 
-@app.route('/status')
-def status():
-    task_id = request.args.get('task_id')
-    task = processing_tasks.get(task_id)
-    if task:
-        return jsonify(task)
-    return jsonify({"status": "not_found"})
+@app.route('/status/<task_id>')
+def status(task_id):
+    task = processing_tasks.get(task_id, {'status': 'not_found'})
+    return jsonify(task)
 
 def process_video_thread(video, full_prompt, video_url, duration, duration_type, task_id):
     def progress_callback(progress):
@@ -126,5 +123,5 @@ def health_check():
 
 if __name__ == '__main__':
     logger.info("Starting the application")
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
