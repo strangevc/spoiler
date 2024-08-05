@@ -108,7 +108,7 @@ def result():
         return redirect(url_for('index'))
     return render_template('result.html', stream_url=stream_url)
 
-if __name__ == '__main__':
+if __name__ != '__main__':
     app.logger.info("Starting the application in development mode")
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
