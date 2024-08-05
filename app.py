@@ -32,6 +32,7 @@ except ImportError as e:
 
 # Dictionary to store processing tasks
 processing_tasks = {}
+processing_tasks_lock = threading.Lock()
 
 @app.route('/', methods=['GET'])
 def index():
@@ -54,7 +55,9 @@ def process():
         
         # Generate a task ID immediately
         task_id = str(uuid.uuid4())
-        processing_tasks[task_id] = {'status': 'queued', 'progress': 0}
+        
+        with processing_tasks_lock:
+            processing_tasks[task_id] = {'status': 'queued', 'progress': 0}
         
         # Start processing in a separate thread
         thread = threading.Thread(target=process_video_async, args=(task_id, video_url, title, genres, duration, duration_type))
@@ -69,26 +72,30 @@ def process():
 
 def process_video_async(task_id, video_url, title, genres, duration, duration_type):
     try:
-        processing_tasks[task_id]['status'] = 'processing'
+        with processing_tasks_lock:
+            processing_tasks[task_id]['status'] = 'processing'
         
         # Process the video and get the stream URL
         stream_url = process_video(video_url, title, genres, duration, duration_type)
         
-        processing_tasks[task_id] = {
-            'status': 'completed',
-            'progress': 100,
-            'stream_url': stream_url
-        }
+        with processing_tasks_lock:
+            processing_tasks[task_id] = {
+                'status': 'completed',
+                'progress': 100,
+                'stream_url': stream_url
+            }
         
         app.logger.info(f"Video processing completed for task {task_id}. Stream URL: {stream_url}")
     
     except Exception as e:
         app.logger.error(f"Error processing video for task {task_id}: {e}")
-        processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
+        with processing_tasks_lock:
+            processing_tasks[task_id] = {'status': 'error', 'message': str(e)}
 
 @app.route('/status/<task_id>')
 def status(task_id):
-    task = processing_tasks.get(task_id, {'status': 'not_found'})
+    with processing_tasks_lock:
+        task = processing_tasks.get(task_id, {'status': 'not_found'})
     app.logger.info(f"Status request for task {task_id}. Current status: {task}")
     response = jsonify(task)
     app.logger.info(f"Sending response for task {task_id}: {response.get_data(as_text=True)}")
