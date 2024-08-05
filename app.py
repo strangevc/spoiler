@@ -1,12 +1,10 @@
 import os
 import logging
 import uuid
-import time
 import threading
-from flask import Flask, render_template, request, jsonify, send_file, current_app, redirect, url_for
+import time
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
-import requests
-import io
 
 # Load environment variables
 load_dotenv()
@@ -27,7 +25,7 @@ else:
 
 # Import video-related functions
 try:
-    from video import upload_video, process_video, read_prompt_from_file, save_to_csv
+    from video import process_video
 except ImportError as e:
     app.logger.error(f"Error importing video functions: {e}")
     raise
@@ -73,11 +71,8 @@ def process_video_async(task_id, video_url, title, genres, duration, duration_ty
     try:
         processing_tasks[task_id]['status'] = 'processing'
         
-        # Simulate processing time
-        time.sleep(5)
-        
-        # Here you would call the actual processing function
-        stream_url = "https://stream.videodb.io/v3/published/manifests/7c00fea6-1f63-4e32-a377-c3ce92a1051b.m3u8"
+        # Process the video and get the stream URL
+        stream_url = process_video(video_url, title, genres, duration, duration_type)
         
         processing_tasks[task_id] = {
             'status': 'completed',
@@ -95,31 +90,9 @@ def process_video_async(task_id, video_url, title, genres, duration, duration_ty
 def status(task_id):
     task = processing_tasks.get(task_id, {'status': 'not_found'})
     app.logger.info(f"Status request for task {task_id}. Current status: {task}")
-    return jsonify(task)
-
-@app.route('/download/<path:stream_url>')
-def download_video(stream_url):
-    try:
-        # Download the video content
-        response = requests.get(stream_url)
-        response.raise_for_status()
-
-        # Create an in-memory file-like object
-        video_file = io.BytesIO(response.content)
-
-        # Generate a filename (you might want to use a more meaningful name)
-        filename = "spoiler_video.mp4"
-
-        # Send the file
-        return send_file(
-            video_file,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='video/mp4'
-        )
-    except Exception as e:
-        app.logger.error(f"Error downloading video: {str(e)}")
-        return jsonify({"error": "Failed to download video"}), 500
+    response = jsonify(task)
+    app.logger.info(f"Sending response for task {task_id}: {response.get_data(as_text=True)}")
+    return response
 
 @app.route('/result')
 def result():
@@ -129,15 +102,6 @@ def result():
         app.logger.warning("Result route accessed without stream_url")
         return redirect(url_for('index'))
     return render_template('result.html', stream_url=stream_url)
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({"status": "ok"}), 200
-
-@app.route('/test', methods=['GET'])
-def test():
-    app.logger.info("Test route accessed")
-    return jsonify({"message": "Test successful", "env": app.config['ENV']}), 200
 
 if __name__ == '__main__':
     app.logger.info("Starting the application in development mode")

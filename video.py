@@ -9,7 +9,6 @@ from videodb.timeline import Timeline, VideoAsset
 from llm_agent import LLM, LLMType, Models
 import logging
 from typing import List, Tuple
-import random
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Set up VideoDB connection
-conn = videodb.connect()
+conn = videodb.connect(api_key=os.getenv("VIDEO_DB_API_KEY"))
 
 # Set up LLM
 llm = LLM(llm_type=LLMType.OPENAI, model=Models.GPT4)
@@ -125,14 +124,23 @@ def rank_segments_by_narrative_structure(segments: List[Tuple[float, float, str]
 
     return sorted(segments, key=lambda s: position_score(s[0], s[1]), reverse=True)
 
-def process_video(video, user_prompt, progress_callback=None, target_duration=300, duration_type='seconds'):
+def process_video(video_url, title, genres, duration, duration_type='seconds'):
     try:
-        base_prompt = read_prompt_from_file()
-        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+        # Upload the video and get the video object
+        video = upload_video(video_url)
+        if not video:
+            raise ValueError("Video upload failed.")
         
+        # Prepare the full prompt
+        base_prompt = read_prompt_from_file()
+        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
+
+        # Get transcript text
         transcript_text = video.get_transcript_text()
         logger.info(f"Transcript length: {len(transcript_text)} characters")
-        
+
+        # Get relevant sentences from transcript
         result = text_prompter(transcript_text, full_prompt)
         logger.info(f"Text prompter found: {len(result)} relevant sentences")
 
@@ -148,11 +156,12 @@ def process_video(video, user_prompt, progress_callback=None, target_duration=30
             for segment in matched_segments:
                 all_segments.append((segment.start, segment.end, clip_sentence))
 
-        # If we need the video duration for percentage calculations, we can estimate it
-        # from the last end time of all segments
+        # Calculate target duration if it's a percentage
         if duration_type == 'percentage' and all_segments:
             estimated_duration = max(segment[1] for segment in all_segments)
-            target_duration = (target_duration / 100) * estimated_duration
+            target_duration = (duration / 100) * estimated_duration
+        else:
+            target_duration = duration
 
         # Sort segments based on start time
         sorted_segments = sorted(all_segments, key=lambda x: x[0])
@@ -175,11 +184,6 @@ def process_video(video, user_prompt, progress_callback=None, target_duration=30
 
             logger.info(f"Added asset for sentence: {sentence[:50]}...")
 
-            # Report progress
-            if progress_callback:
-                progress = min(100, (total_duration / target_duration) * 100)
-                progress_callback(progress)
-
             if total_duration >= target_duration:
                 break
 
@@ -189,7 +193,7 @@ def process_video(video, user_prompt, progress_callback=None, target_duration=30
 
         logger.info(f"Added {assets_added} VideoAssets to the timeline. Total duration: {total_duration:.2f} seconds")
 
-        # Generate the stream
+        # Generate the stream URL
         stream_url = timeline.generate_stream()
         logger.info(f"Generated stream URL: {stream_url}")
         return stream_url
@@ -197,25 +201,24 @@ def process_video(video, user_prompt, progress_callback=None, target_duration=30
         logger.error(f"Error processing video: {str(e)}", exc_info=True)
         return None
 
-
-def save_to_csv(video_url, prompt, stream_link):
-    """
-    Save the video processing results to a CSV file and display them.
-    """
-    filename = "video_processing_results.csv"
-    file_exists = os.path.isfile(filename)
+# def save_to_csv(video_url, prompt, stream_link):
+#     """
+#     Save the video processing results to a CSV file and display them.
+#     """
+#     filename = "video_processing_results.csv"
+#     file_exists = os.path.isfile(filename)
     
-    with open(filename, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        if not file_exists:
-            writer.writerow(["Video URL", "Prompt", "Stream Link"])
-        writer.writerow([video_url, prompt, stream_link])
+#     with open(filename, mode='a', newline='') as file:
+#         writer = csv.writer(file)
+#         if not file_exists:
+#             writer.writerow(["Video URL", "Prompt", "Stream Link"])
+#         writer.writerow([video_url, prompt, stream_link])
     
-    logger.info("\nResults saved to video_processing_results.csv")
-    logger.info("\nCurrent results:")
-    logger.info(f"Video URL: {video_url}")
-    logger.info(f"Prompt: {prompt}")
-    logger.info(f"Stream Link: {stream_link}")
+#     logger.info("\nResults saved to video_processing_results.csv")
+#     logger.info("\nCurrent results:")
+#     logger.info(f"Video URL: {video_url}")
+#     logger.info(f"Prompt: {prompt}")
+#     logger.info(f"Stream Link: {stream_link}")
 
 def main():
     video_url = input("Enter the video URL: ")
