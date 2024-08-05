@@ -123,6 +123,7 @@
         });
 
         function pollProcessingStatus(taskId) {
+            console.log('Polling status for task:', taskId);
             $.ajax({
                 url: '/status/' + taskId,
                 type: 'GET',
@@ -134,20 +135,27 @@
                             pollProcessingStatus(taskId);
                         }, 2000); // Poll every 2 seconds
                     } else if (data.status === 'completed') {
-                        console.log('Processing completed. Redirecting to:', '/result?stream_url=' + encodeURIComponent(data.stream_url));
+                        console.log('Processing completed. Attempting to redirect to:', '/result?stream_url=' + encodeURIComponent(data.stream_url));
                         window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
+                        console.log('Redirection should have occurred');
                     } else if (data.status === 'error') {
+                        console.error('Processing error:', data.message);
                         alert('An error occurred while processing the video: ' + data.message);
                         $('#form-container').show();
                         $('#processing').hide();
                     } else if (data.status === 'not_found') {
+                        console.error('Task not found');
                         alert('Processing task not found. Please try again.');
                         $('#form-container').show();
                         $('#processing').hide();
+                    } else {
+                        console.warn('Unknown status received:', data.status);
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Error checking status:', error);
+                    console.error('XHR status:', status);
+                    console.error('XHR response:', xhr.responseText);
                     alert('Error checking processing status. Please try again.');
                     $('#form-container').show();
                     $('#processing').hide();
