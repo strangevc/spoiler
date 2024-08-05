@@ -24,14 +24,15 @@ llm = LLM(llm_type=LLMType.OPENAI, model=Models.GPT4)
 
 def read_prompt_from_file(filename="spoiler_prompt.txt"):
     """
-    Read the prompt from a file.
+    Read the base prompt from a file.
+    If the file is not found, log an error and return None.
     """
     try:
         with open(filename, 'r') as file:
             return file.read().strip()
     except FileNotFoundError:
-        logger.warning(f"{filename} not found. Using default prompt.")
-        return "Analyze the following content and create a concise summary."
+        logger.error(f"{filename} not found. Please ensure this file exists with the base prompt.")
+        return None
 
 def upload_video(url):
     """
@@ -63,9 +64,9 @@ def send_msg_to_llm(chunk_prompt):
     output = json.loads(response["choices"][0]["message"]["content"])
     return output.get('sentences', [])
 
-def text_prompter(transcript_text, prompt):
+def text_prompter(transcript_text, base_prompt, user_prompt):
     """
-    Process the transcript text using the given prompt
+    Process the transcript text using the given prompts
     """
     chunk_size = llm.get_word_limit()
     chunks = chunk_transcript(transcript_text, chunk_size=chunk_size)
@@ -76,15 +77,19 @@ def text_prompter(transcript_text, prompt):
     for chunk in chunks:
         chunk_prompt = f"""
         You are a video editor who uses AI. Given a user prompt and transcript of a video, analyze the text to identify sentences in the transcript relevant to the user prompt for making clips. 
-        - Instructions: 
-          - Evaluate the sentences for relevance to the specified user prompt.
-          - Make sure that sentences start and end properly and meaningfully complete the discussion or topic. Choose the one with the greatest relevance and longest.
-          - We'll use the sentences to make video clips in future, so optimize for great viewing experience for people watching the clip of these.
-          - If the matched sentences are not too far, merge them into one sentence.
-          - Strictly make each result minimum 20 words long. If the match is smaller, adjust the boundaries and add more context around the sentences.
+
+        Base Instructions:
+        {base_prompt}
+
+        Specific Instructions for Sentence Selection:
+        - Evaluate the sentences for relevance to the specified user prompt.
+        - Make sure that sentences start and end properly and meaningfully complete the discussion or topic. Choose the one with the greatest relevance and longest.
+        - We'll use the sentences to make video clips in future, so optimize for great viewing experience for people watching the clip of these.
+        - If the matched sentences are not too far, merge them into one sentence.
+        - Strictly make each result minimum 20 words long. If the match is smaller, adjust the boundaries and add more context around the sentences.
 
         Transcript: {chunk}
-        User Prompt: {prompt}
+        User Prompt: {user_prompt}
 
         Ensure the final output strictly adheres to the JSON format specified without including additional text or explanations. 
         If there is no match return empty list without additional text. Use the following structure for your response:
@@ -131,17 +136,19 @@ def process_video(video_url, title, genres, duration, duration_type='seconds'):
         if not video:
             raise ValueError("Video upload failed.")
         
-        # Prepare the full prompt
+        # Prepare the prompts
         base_prompt = read_prompt_from_file()
+        if base_prompt is None:
+            raise ValueError("Base prompt file not found. Cannot proceed with video processing.")
+        
         user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
 
         # Get transcript text
         transcript_text = video.get_transcript_text()
         logger.info(f"Transcript length: {len(transcript_text)} characters")
 
         # Get relevant sentences from transcript
-        result = text_prompter(transcript_text, full_prompt)
+        result = text_prompter(transcript_text, base_prompt, user_prompt)
         logger.info(f"Text prompter found: {len(result)} relevant sentences")
 
         if not result:
@@ -201,24 +208,24 @@ def process_video(video_url, title, genres, duration, duration_type='seconds'):
         logger.error(f"Error processing video: {str(e)}", exc_info=True)
         return None
 
-# def save_to_csv(video_url, prompt, stream_link):
-#     """
-#     Save the video processing results to a CSV file and display them.
-#     """
-#     filename = "video_processing_results.csv"
-#     file_exists = os.path.isfile(filename)
+def save_to_csv(video_url, prompt, stream_link):
+    """
+    Save the video processing results to a CSV file and display them.
+    """
+    filename = "video_processing_results.csv"
+    file_exists = os.path.isfile(filename)
     
-#     with open(filename, mode='a', newline='') as file:
-#         writer = csv.writer(file)
-#         if not file_exists:
-#             writer.writerow(["Video URL", "Prompt", "Stream Link"])
-#         writer.writerow([video_url, prompt, stream_link])
+    with open(filename, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Video URL", "Prompt", "Stream Link"])
+        writer.writerow([video_url, prompt, stream_link])
     
-#     logger.info("\nResults saved to video_processing_results.csv")
-#     logger.info("\nCurrent results:")
-#     logger.info(f"Video URL: {video_url}")
-#     logger.info(f"Prompt: {prompt}")
-#     logger.info(f"Stream Link: {stream_link}")
+    logger.info("\nResults saved to video_processing_results.csv")
+    logger.info("\nCurrent results:")
+    logger.info(f"Video URL: {video_url}")
+    logger.info(f"Prompt: {prompt}")
+    logger.info(f"Stream Link: {stream_link}")
 
 def main():
     video_url = input("Enter the video URL: ")
@@ -226,17 +233,11 @@ def main():
     genres = input("Enter genres (comma-separated): ").split(',')
     duration = int(input("Enter desired summary duration in seconds: "))
 
-    video = upload_video(video_url)
-    if video is None:
-        logger.error("Error uploading video. Please try again.")
-        return
-
-    base_prompt = read_prompt_from_file()
-    user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
-    full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
-
-    stream_url = process_video(video, full_prompt)
+    stream_url = process_video(video_url, title, genres, duration)
     if stream_url:
+        base_prompt = read_prompt_from_file()
+        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
         save_to_csv(video_url, full_prompt, stream_url)
         logger.info(f"Processed video stream URL: {stream_url}")
         videodb.play_stream(stream_url)  # Play the video stream for testing
