@@ -135,9 +135,8 @@
                             pollProcessingStatus(taskId);
                         }, 2000); // Poll every 2 seconds
                     } else if (data.status === 'completed') {
-                        console.log('Processing completed. Attempting to redirect to:', '/result?stream_url=' + encodeURIComponent(data.stream_url));
+                        console.log('Processing completed. Redirecting to result...');
                         window.location.href = '/result?stream_url=' + encodeURIComponent(data.stream_url);
-                        console.log('Redirection should have occurred');
                     } else if (data.status === 'error') {
                         console.error('Processing error:', data.message);
                         alert('An error occurred while processing the video: ' + data.message);
@@ -170,5 +169,6 @@
         }
     });
 </script>
+
 </body>
 </html>
