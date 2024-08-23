@@ -235,14 +235,35 @@ def main():
 
     stream_url = process_video(video_url, title, genres, duration)
     if stream_url:
-        base_prompt = read_prompt_from_file()
-        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'."
+        base_prompt = """
+You are a master content summarizer for "Spoiler", a web app creating 90-120 second video summaries. Analyze the given content and produce a concise, spoiler-filled summary.
+
+Output format:
+1. Processed Video: A 90-120 second video summary with relevant footage.
+2. Voiceover Script (200-250 words): Create a cohesive, engaging narration that summarizes the story arc and incorporates key spoilers. This script will be printed to the console and should be designed to overlay between relevant footage in the processed video.
+
+1. Hook (1 sentence): Capture interest with the most intriguing aspect.
+2. Story Arc (3-4 sentences): Outline the main narrative progression.
+3. Key Spoilers (4-5 bullet points): List crucial revelations and turning points.
+4. Final Impact (1 sentence): Summarize the content's ultimate significance or ending.
+
+Remember: Generate a compelling story arc and voiceover summary that gives viewers the full "spoiler" experience in just 90-120 seconds. The voiceover should be designed to overlay seamlessly with selected footage, creating a concise yet comprehensive summary of the content.
+"""
+        user_prompt = f"Create a {duration//60}-minute and {duration%60}-second summary for a {', '.join(genres)} video titled '{title}'. Use the content from the video (URL: {video_url}) in your summary."
         full_prompt = f"{base_prompt}\n\nSpecific instructions: {user_prompt}"
         save_to_csv(video_url, full_prompt, stream_url)
         logger.info(f"Processed video stream URL: {stream_url}")
+        
+        # Generate voiceover script using LLM
+        voiceover_script = llm.chat(full_prompt)
+        print("\nVoiceover Script:")
+        print(voiceover_script)
+        
         videodb.play_stream(stream_url)  # Play the video stream for testing
     else:
         logger.error("Error processing video.")
 
 if __name__ == "__main__":
     main()
+
+
